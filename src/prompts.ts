@@ -26,6 +26,13 @@ const STEM_RULES = `Math and science content:
 - Graphs of functions (waveforms, potentials, distributions, trade-off curves) go in a fenced plot block holding JSON: {"title":"...","xlabel":"...","ylabel":"...","xmin":0,"xmax":10,"series":[{"label":"...","expr":"exp(-0.3*x)*cos(3*x)"}]}. The expr is a mathjs expression in x (use *, ^, sin, cos, exp, sqrt, pi), never LaTeX.
 - Use mermaid only for processes, hierarchies and state/flow structure. Add equations or figures only where they genuinely clarify; never decorate.`;
 
+const QUESTION_RULES = `Question precision (every question you write, including multiple-choice checks, flashcard fronts, predictions and follow-ups):
+- Each question must have exactly one defensible reading. Name the specific thing being asked about; never use bare "it", "this" or "the system" without a clear referent, and never lean on context the learner cannot see.
+- State any assumptions, conditions or scope the answer depends on inside the question itself (e.g. "assuming a single thread", "in the ideal case").
+- Ask for one thing at a time, and say what form the answer takes (which, why, how many, what happens next).
+- For multiple-choice: exactly one option is correct, the others are clearly wrong on a strict reading, and no option is a matter of opinion or "it depends". Avoid "all/none of the above" and vague words like "usually", "best" or "better" unless the question defines the criterion.
+- Open-ended questions may have many good answers, but the task must still be unambiguous about what to address.`;
+
 const diagramRule = (p: Profile) =>
   p.diagrams === "lots" ? "Include 1-2 mermaid diagrams." : p.diagrams === "some" ? "Include one mermaid diagram if it genuinely helps." : "Only include a diagram if essential.";
 
@@ -59,6 +66,7 @@ Concepts to touch: ${area.concepts.map((c) => c.name).join(", ")}.
 Rules: max ~250 words in markdown. ${p.order === "examples-first" ? "Open with a concrete example, then name the idea." : p.order === "theory-first" ? "State the core principle first, then illustrate." : "Open with where it fits in the whole field, then the idea, then an example."}
 Use the learner's preferred styles (${p.styles.join(", ") || "any"}). ${diagramRule(p)} ${MERMAID_RULES}
 ${STEM_RULES}
+${QUESTION_RULES}
 Exactly 2 multiple-choice checks (4 options each, "answer" is the 0-based index, plausible distractors based on real misconceptions; vary the position of the right answer). 2-3 flashcards.
 Return ONLY JSON of this shape:
 ${lessonShape}`;
@@ -78,6 +86,7 @@ Already covered in this area: ${doneTitles.join("; ") || "nothing yet"}. Build o
 Rules: 400-650 words of markdown with ## subheadings. ${p.order === "examples-first" ? "Start from a worked example, then abstract." : p.order === "theory-first" ? "Start from first principles, then apply." : "Start from the big picture, zoom in, then work an example."}
 Include a worked example, one common misconception to avoid, and ${p.diagrams === "minimal" ? "at least one" : "1-2"} figure(s) (mermaid, svg or plot as fits the subject) showing the real mechanism/structure (not decoration). ${MERMAID_RULES}
 ${STEM_RULES}
+${QUESTION_RULES}
 Challenge level: ${p.challenge}. Exactly ${p.challenge === "tough" ? 4 : 3} multiple-choice checks that test understanding/application, not trivia (4 options, "answer" is 0-based). 3-4 flashcards phrased as recall questions.
 ${p.socratic ? "The learner prefers a SOCRATIC style: the markdown is the consolidation shown AFTER they work through your leading questions, so it should name and tie together the ideas those questions lead to." : ""}
 Also include the "prediction" (a situation where a wrong intuition is likely, so they learn from guessing wrong), the "deeper" trade-off question${p.socratic ? ", and exactly 3 \"socratic\" questions" : ""}.
@@ -127,7 +136,7 @@ export const PERSONAS: Persona[] = [
 export function personaPrompt(p: Profile, persona: Persona, title: string, keyPoints: string[], answer: string): string {
   return `Role-play ${persona.label} (${persona.voice}) who just heard the learner explain "${title}". Their explanation: """${answer}"""
 A complete explanation would cover: ${keyPoints.join("; ")}.
-React in character in 1-2 sentences (say honestly what confused you or what clicked), then ask ONE follow-up question aimed at the biggest gap or shaky claim in what they said. Stay in character; never reveal the answer.
+React in character in 1-2 sentences (say honestly what confused you or what clicked), then ask ONE follow-up question aimed at the biggest gap or shaky claim in what they said. Stay in character; never reveal the answer. The question must still be unambiguous: one specific thing asked, with any needed context stated.
 Return ONLY JSON: {"reaction":"...","question":"..."}`;
 }
 
@@ -135,6 +144,7 @@ export function diagnoseQuestionsPrompt(p: Profile, title: string, missed: strin
   return `${learnerBlurb(p)}
 The learner struggled with "${title}". They missed: ${missed.map((m) => `"${m}"`).join("; ") || "none (their own-words explanation was weak)"}. ${explanation ? `Feedback on their explanation: ${explanation}` : ""}
 Write exactly 2 short diagnostic questions (not quiz questions) that reveal WHAT mental model they hold, e.g. "what do you picture happens when ...?". Do not teach yet.
+${QUESTION_RULES}
 Return ONLY JSON: {"questions":["...","..."]}`;
 }
 
@@ -144,6 +154,7 @@ Lesson "${title}". Missed questions: ${missed.join("; ") || "n/a"}.
 Diagnostic Q&A:
 ${qa.map((x) => `Q: ${x.q}\nA: ${x.a || "(no answer)"}`).join("\n")}
 Identify the single most likely misconception or gap, re-teach exactly that with a NEW angle (max 150 words, markdown, optional tiny mermaid), and write one fresh multiple-choice check that would fail if the misconception persists (4 options, "answer" 0-based index).
+${QUESTION_RULES}
 Return ONLY JSON: {"misconception":"one sentence","reteach":"markdown","retest":{"q":"...","options":["","","",""],"answer":0,"explain":"..."}}`;
 }
 
@@ -160,6 +171,7 @@ export function deeperPrompt(p: Profile, s: TopicState, title: string, lens: (ty
   return `${learnerBlurb(p)} ${useBlurb(s)}
 Topic "${s.title}", lesson "${title}". Pose ONE open-ended "think deeper" question through the lens "${lens.label}": ${lens.ask}
 Make it concrete (a specific situation, not abstract). Do not repeat earlier questions: ${earlier.join(" | ") || "none"}.
+${QUESTION_RULES}
 Return ONLY JSON: {"question":"...","considerations":["4-5 things a thoughtful answer would raise"]}`;
 }
 
@@ -176,5 +188,6 @@ export function challengePrompt(p: Profile, s: TopicState, area: Area, covered: 
   return `${learnerBlurb(p)} ${useBlurb(s)}
 The learner just finished a deep dive into "${area.title}" (topic "${s.title}"), covering: ${covered.join("; ")}.
 Write ONE realistic application challenge: a specific scenario with constraints and a decision to make, where there is no single right answer and the learner must weigh trade-offs and anticipate what could go wrong. Make it ${p.challenge === "tough" ? "hard and ambiguous" : p.challenge === "gentle" ? "approachable" : "moderately demanding"}.
+${QUESTION_RULES}
 Return ONLY JSON: {"scenario":"3-5 sentences","task":"what they must decide or design, and justify","considerations":["5-6 things a strong answer weighs"]}`;
 }

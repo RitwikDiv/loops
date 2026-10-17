@@ -1,6 +1,11 @@
 import { renderMermaidASCII } from "beautiful-mermaid";
 
 const color = !!process.stdout.isTTY && !process.env.NO_COLOR;
+// beautiful-mermaid hardcodes near-black label text, unreadable on dark terminals. Render labels in a
+// sentinel colour and swap it for the terminal's default foreground; lines use a mid-grey legible on both.
+const SENTINEL = "\x1b[38;5;201m";
+const GREY = "#8a8a8a";
+const theme = { fg: "#ff00ff", border: GREY, line: GREY, arrow: GREY, corner: GREY, junction: GREY };
 const widest = (s: string) => Math.max(...s.split("\n").map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").length));
 
 /** mindmap isn't supported by beautiful-mermaid, so draw it as an indented tree. */
@@ -33,7 +38,8 @@ export function renderDiagram(src: string, cols = process.stdout.columns ?? 100)
   if (/^mindmap\b/.test(text)) return mindmapTree(text);
   const attempt = (s: string) => {
     try {
-      return renderMermaidASCII(s, { colorMode: color ? "ansi256" : "none", paddingY: 2, paddingX: 4 });
+      const out = renderMermaidASCII(s, { colorMode: color ? "ansi256" : "none", paddingY: 2, paddingX: 4, theme });
+      return color ? out.split(SENTINEL).join("\x1b[39m") : out;
     } catch {
       return null;
     }
