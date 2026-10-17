@@ -1,6 +1,6 @@
 {
   "name": "learn-loops",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A learning CLI that uses Claude Code / Codex as your tutor",
   "type": "module",
   "bin": {
