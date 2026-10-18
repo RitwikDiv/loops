@@ -21,6 +21,7 @@
     "@clack/prompts": "^1.8.1",
     "@resvg/resvg-js": "^2.6.2",
     "beautiful-mermaid": "^1.1.3",
+    "cli-table3": "^0.6.5",
     "mathjax-full": "^3.2.1",
     "mathjs": "^15.2.0",
     "picocolors": "^1.1.1",

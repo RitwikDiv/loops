@@ -78,3 +78,17 @@ test("materializeFigures writes svg files and swaps in image links", async () =>
   assert.ok(existsSync(join(dir, "figures/deep-a-01-x-1.svg")));
   assert.match(readFileSync(join(dir, "figures/deep-a-01-x-1.svg"), "utf8"), /<svg/);
 });
+
+test("markdown tables render as an aligned box", async () => {
+  const { renderTable } = await import("../src/table.ts");
+  const id = (s: string) => s;
+  const rows = ["| Class | What you own | Example |", "|---|---|---|", "| Equities | Slice of a company | Apple shares |", "| Bonds | A loan, paid back with interest | US Treasuries |"];
+  const out = renderTable(rows, id, id, id, 100);
+  assert.equal(out.length, 6); // top, header, rule, 2 rows, bottom
+  assert.equal(new Set(out.map((l) => l.length)).size, 1); // every line the same width
+  assert.ok(out[1].includes("Class") && !out.join("\n").includes("---"));
+  const narrow = renderTable(rows, id, id, id, 40);
+  assert.ok(narrow.every((l) => l.length <= 40));
+  assert.ok(narrow.join(" ").includes("company"));
+  assert.ok(renderTable(rows, id, id, id, 12).join("\n").includes("Class: Equities")); // stacked fallback
+});

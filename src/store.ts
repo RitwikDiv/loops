@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile, readdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
@@ -60,6 +60,13 @@ export async function listTopics(profile: Profile): Promise<Topic[]> {
 }
 
 const lastTouched = (t: Topic) => t.state.cards.map((c) => c.due).sort().pop() ?? t.state.createdAt;
+
+/** Removes a topic's folder (notes, cards, progress) and its category folder if that leaves it empty. */
+export async function deleteTopic(topic: Topic) {
+  await rm(topic.dir, { recursive: true, force: true });
+  const cat = dirname(topic.dir);
+  if (!(await readdir(cat).catch(() => ["x"])).length) await rm(cat, { recursive: true, force: true });
+}
 
 export async function listCategories(profile: Profile): Promise<string[]> {
   const root = expandHome(profile.rootDir);

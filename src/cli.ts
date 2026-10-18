@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as p from "@clack/prompts";
-import { listTopics, loadProfile, configDir } from "./store.js";
+import { listTopics, loadProfile, configDir, deleteTopic } from "./store.js";
 import { PROVIDER_HELP, allStatuses, noProviderMessage, setNotifier } from "./llm.js";
 import { isDue } from "./srs.js";
 import { currentStreak, doneToday, loadStats, recordActivity, saveCheckin, type Energy, type Stats } from "./stats.js";
@@ -21,8 +21,11 @@ const HELP = `${t.bold("loops")} — learn anything with Claude Code or Codex as
   loops streak          your streak
   loops map             show a topic's map and prerequisite diagram
   loops topics          list your topics and progress
+  loops delete          delete a topic and all its notes and progress
   loops profile         edit how you like to learn
   loops --help          this help
+
+To delete a course: run ${t.bold("loops delete")}, or choose "Delete a topic" from the menu.
 
 Env: LOOPS_HOME (config dir), LOOPS_PROVIDER=claude|codex, LOOPS_ALLOW_API_BILLING=1 (allow pay-per-token logins), NO_COLOR`;
 
@@ -114,11 +117,13 @@ async function startScreen(profile: Profile, topics: Topic[], rec: Pick) {
         }),
         { value: "__new", label: t.accent("+ Start something new") },
         { value: "__menu", label: t.dim("Go to the main menu") },
+        { value: "__delete", label: t.dim("Delete a topic"), hint: "or run `loops delete`" },
       ],
     }),
   );
   if (choice === "__menu") return;
   if (choice === "__new") return dispatch("new", profile);
+  if (choice === "__delete") return dispatch("delete", profile);
   const tp = recent[Number(choice)];
   if (tp.state.map && tp.state.phase === "survey" && !tp.state.progress[tp.state.map.areas[0].id]?.surveyed) printMap(tp);
   await continueTopic(profile, tp);
@@ -145,7 +150,7 @@ async function menu(profile: Profile) {
       ...(due ? [{ value: "review", label: "Review flashcards", hint: `${due} due${star("review")}` }] : []),
       ...(cards >= 4 ? [{ value: "quiz", label: "Mixed quiz", hint: `interleaved, weakest first${star("quiz")}` }] : []),
       ...(topics.some((tp) => tp.state.mistakes?.length) ? [{ value: "mistakes", label: "Mistake journal" }] : []),
-      ...(topics.length ? [{ value: "topics", label: "My topics" }] : []),
+      ...(topics.length ? [{ value: "topics", label: "My topics" }, { value: "delete", label: "Delete a topic" }] : []),
     ];
     // put the recommendation first
     opts.sort((a, b) => Number(b.value === rec) - Number(a.value === rec));
@@ -221,6 +226,15 @@ async function dispatch(action: string, profile: Profile, arg?: string) {
       if (tp.state.map) printMap(tp);
       break;
     }
+    case "delete": {
+      if (!topics.length) return p.log.warn("No topics to delete.");
+      const tp = arg ? topics.find((x) => x.state.title.toLowerCase() === arg.toLowerCase()) ?? (await chooseTopic(topics, "Which topic?")) : await chooseTopic(topics, "Which topic do you want to delete?");
+      const ok = must(await p.confirm({ message: `Delete "${tp.state.title}" and all its notes, cards and progress? This can't be undone.`, initialValue: false }));
+      if (!ok) return p.log.info("Kept it.");
+      await deleteTopic(tp);
+      p.log.success(t.ok(`Deleted "${tp.state.title}".`));
+      break;
+    }
     case "profile":
       await onboard(profile);
       break;
@@ -254,7 +268,7 @@ async function main() {
     profile.provider = fallback;
   }
   if (!cmd) return menu(profile);
-  if (["new", "continue", "review", "quiz", "mistakes", "streak", "topics", "profile", "map"].includes(cmd)) return dispatch(cmd, profile, rest.join(" ") || undefined);
+  if (["new", "continue", "review", "quiz", "mistakes", "streak", "topics", "profile", "map", "delete"].includes(cmd)) return dispatch(cmd, profile, rest.join(" ") || undefined);
   console.log(HELP);
   process.exit(1);
 }

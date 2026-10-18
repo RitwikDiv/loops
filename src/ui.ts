@@ -3,6 +3,7 @@ import pc from "picocolors";
 import { renderDiagram } from "./diagram.js";
 import { parsePlot, plotToBraille, renderPlot, sanitizeSvg, svgCaption } from "./figures.js";
 import { mathToText, svgToPng, texToLines, texToPng, type Raster } from "./math.js";
+import { isTableLine, renderTable } from "./table.js";
 import { drawImage, imageProtocol } from "./termimg.js";
 
 const useColor = !!process.stdout.isTTY && !process.env.NO_COLOR;
@@ -119,7 +120,14 @@ export function renderMd(md: string): string {
       .replace(/\*\*(.+?)\*\*/g, (_, x) => t.bold(x))
       .replace(/`([^`]+)`/g, (_, x) => t.cyan(x))
       .replace(/(?<![*\w])\*([^*]+)\*(?!\w)/g, (_, x) => t.italic(x));
+  let tableBuf: string[] = [];
+  const flushTable = () => {
+    const cols = process.stdout.columns ?? 100;
+    out.push(...renderTable(tableBuf, inline, (x) => t.bold(t.accent(inline(x))), t.dim, cols - 4).map((l) => "  " + l));
+    tableBuf = [];
+  };
   for (const raw of md.split("\n")) {
+    if (tableBuf.length && !isTableLine(raw)) flushTable();
     // display math: $$ … $$ (one or many lines) and \[ … \]
     if (math) {
       const close = raw.match(/^(.*?)(\$\$|\\\])\s*$/);
@@ -164,6 +172,10 @@ export function renderMd(md: string): string {
       out.push("  " + t.dim("│ ") + t.cyan(raw));
       continue;
     }
+    if (isTableLine(raw)) {
+      tableBuf.push(raw);
+      continue;
+    }
     const h = raw.match(/^(#{1,4})\s+(.*)/);
     if (h) {
       out.push("", "  " + (h[1].length <= 2 ? t.bold(t.accent(inline(h[2]))) : t.bold(inline(h[2]))));
@@ -181,6 +193,7 @@ export function renderMd(md: string): string {
     }
     out.push(raw.trim() ? "  " + inline(raw) : "");
   }
+  if (tableBuf.length) flushTable();
   return out.join("\n");
 }
 
