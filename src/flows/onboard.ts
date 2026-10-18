@@ -1,28 +1,35 @@
 import * as p from "@clack/prompts";
-import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { PROVIDER_HELP, hasBinary as has, installedProviders } from "../llm.js";
 import { saveProfile } from "../store.js";
 import { must, t } from "../ui.js";
 import type { Profile, ProviderName } from "../types.js";
 
-const has = (bin: string) => {
-  try {
-    execFileSync("which", [bin], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 export async function onboard(existing?: Profile | null): Promise<Profile> {
   p.intro(t.bold(t.accent(existing ? " Edit your learner profile " : " Let's set up how YOU learn ")));
-  if (!existing) p.note("Answer a few questions so every lesson, quiz and diagram fits you.\nYou can change any of this later with `loops profile`.", "Welcome");
+  if (!existing) {
+    p.note("Answer a few questions so every lesson, quiz and diagram fits you.\nYou can change any of this later with `loops profile`.", "Welcome");
+    const found = (["claude", "codex"] as const).map((n) => `${has(n) ? t.ok("✓") : t.dim("✗")} ${PROVIDER_HELP[n].label}`).join("   ");
+    p.note(
+      [
+        `loops has no AI of its own. It looks for Claude Code or Codex on your computer and uses it as your tutor:  ${found}`,
+        "",
+        "To avoid surprise charges:",
+        "  • It only uses your subscription login. API-key / pay-per-token logins are refused,",
+        "    and API-key environment variables are hidden from the tutor.",
+        "  • If one tutor fails (e.g. usage limit), it switches to the other.",
+        "  • It can't see your account's \"extra usage\" / credits setting. Turn that off in your",
+        "    Claude or ChatGPT account settings if you don't want to pay beyond your plan.",
+      ].join("\n"),
+      "Your tutor & billing",
+    );
+  }
   const d = existing;
 
   const name = must(await p.text({ message: "What should I call you?", initialValue: d?.name, validate: (v) => (v?.trim() ? undefined : "Required") }));
 
-  const installed: ProviderName[] = (["claude", "codex"] as const).filter(has);
+  const installed = installedProviders();
   const provider = must(
     await p.select<ProviderName>({
       message: "Which AI tutor should power your lessons?",

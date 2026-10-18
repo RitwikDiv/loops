@@ -40,3 +40,18 @@ test("mapMarkdown emits sanitized mermaid", () => {
   assert.match(md, /n_a --> n_b/);
   assert.doesNotMatch(md, /mindmap[\s\S]*\(clause\)[\s\S]*```\n\n## Suggested/);
 });
+
+test("billing classification flags pay-per-token logins", async () => {
+  const { classifyClaude, classifyCodex, childEnv } = await import("../src/llm.ts");
+  assert.equal(classifyClaude('{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}'), "subscription");
+  assert.equal(classifyClaude('{"loggedIn":true,"authMethod":"api_key","apiProvider":"firstParty"}'), "metered");
+  assert.equal(classifyClaude('{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"bedrock"}'), "metered");
+  assert.equal(classifyClaude('{"loggedIn":false}'), "logged-out");
+  assert.equal(classifyClaude("garbage"), "unknown");
+  assert.equal(classifyCodex("Logged in using ChatGPT"), "subscription");
+  assert.equal(classifyCodex("Logged in using an API key - sk-***"), "metered");
+  assert.equal(classifyCodex("Not logged in"), "logged-out");
+  const env = { PATH: "/bin", ANTHROPIC_API_KEY: "x", OPENAI_API_KEY: "y" };
+  assert.deepEqual(childEnv(env), { PATH: "/bin" });
+  assert.equal(childEnv({ ...env, LOOPS_ALLOW_API_BILLING: "1" }).ANTHROPIC_API_KEY, "x");
+});

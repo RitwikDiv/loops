@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as p from "@clack/prompts";
 import { listTopics, loadProfile, configDir } from "./store.js";
+import { PROVIDER_HELP, allStatuses, noProviderMessage, setNotifier } from "./llm.js";
 import { isDue } from "./srs.js";
 import { currentStreak, doneToday, loadStats, recordActivity, saveCheckin, type Energy, type Stats } from "./stats.js";
 import { banner, bar, must, t } from "./ui.js";
@@ -23,7 +24,7 @@ const HELP = `${t.bold("loops")} — learn anything with Claude Code or Codex as
   loops profile         edit how you like to learn
   loops --help          this help
 
-Env: LOOPS_HOME (config dir), LOOPS_PROVIDER=claude|codex, NO_COLOR`;
+Env: LOOPS_HOME (config dir), LOOPS_PROVIDER=claude|codex, LOOPS_ALLOW_API_BILLING=1 (allow pay-per-token logins), NO_COLOR`;
 
 const dueCount = (topics: Topic[]) => topics.reduce((n, tp) => n + tp.state.cards.filter((c) => isDue(c)).length, 0);
 
@@ -235,9 +236,23 @@ async function main() {
     process.exit(1);
   }
   banner();
+  setNotifier((m) => p.log.warn(m));
+  const statuses = await allStatuses();
+  const usable = statuses.filter((x) => x.usable);
+  if (!usable.length) {
+    const installed = statuses.filter((x) => x.installed);
+    p.log.error(t.bad(installed.length ? `No usable tutor:\n${installed.map((x) => `  - ${x.reason}`).join("\n")}` : noProviderMessage()));
+    process.exit(1);
+  }
+  for (const x of statuses) if (x.installed && !x.usable) p.log.warn(x.reason);
   let profile = await loadProfile();
   if (!profile) profile = await onboard();
   if (process.env.LOOPS_PROVIDER === "claude" || process.env.LOOPS_PROVIDER === "codex") profile.provider = process.env.LOOPS_PROVIDER;
+  if (!usable.some((x) => x.name === profile.provider)) {
+    const fallback = usable[0].name;
+    p.log.warn(`Using ${PROVIDER_HELP[fallback].label} for this session instead of ${PROVIDER_HELP[profile.provider].label}.`);
+    profile.provider = fallback;
+  }
   if (!cmd) return menu(profile);
   if (["new", "continue", "review", "quiz", "mistakes", "streak", "topics", "profile", "map"].includes(cmd)) return dispatch(cmd, profile, rest.join(" ") || undefined);
   console.log(HELP);

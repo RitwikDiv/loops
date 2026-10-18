@@ -7,7 +7,7 @@ npm i -g learn-loops
 loops
 ```
 
-Requires Node 20+ and either the `claude` or `codex` CLI installed and logged in. If `loops` isn't found after install, add npm's global bin folder to your `PATH` (`npm prefix -g`, then `<that>/bin`).
+Requires Node 20+ and either the `claude` or `codex` CLI installed and logged in (`npm i -g @anthropic-ai/claude-code` or `npm i -g @openai/codex`). If neither is found, `loops` says so and shows how to install one; if your saved tutor is missing but the other is present, it falls back to that one. If `loops` isn't found after install, add npm's global bin folder to your `PATH` (`npm prefix -g`, then `<that>/bin`).
 
 ## How it teaches
 
@@ -61,4 +61,10 @@ loops profile       edit your learner profile
 ```
 
 Your profile and streak live in `~/.config/loops/`.
-Env: `LOOPS_HOME`, `LOOPS_PROVIDER=claude|codex`, `LOOPS_IMAGES`, `NO_COLOR`.
+### Billing safety
+
+`loops` runs the CLIs under your subscription login and strips `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and similar variables from their environment, so you aren't billed per token by accident. A CLI signed in with an API key (or Bedrock/Vertex) is refused unless you set `LOOPS_ALLOW_API_BILLING=1`. If your tutor fails (usage limit, outage), `loops` automatically tries the other one.
+
+It **can't** see your account's "extra usage" (Claude) or credits (ChatGPT/Codex) settings, because neither CLI exposes them. If you don't want overage charges, turn those off in your account settings.
+
+Env: `LOOPS_HOME`, `LOOPS_PROVIDER=claude|codex`, `LOOPS_ALLOW_API_BILLING=1`, `LOOPS_IMAGES`, `NO_COLOR`.
