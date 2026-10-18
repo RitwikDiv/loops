@@ -34,7 +34,7 @@ export interface DeeperRound {
  * Trade-offs, failure modes, scale and second-order effects. Round one uses the lesson's own question;
  * further rounds rotate through different lenses so the learner practises seeing a topic from many sides.
  */
-export async function thinkDeeper(profile: Profile, s: TopicState, title: string, seed?: LessonContent["deeper"], maxRounds = 3): Promise<DeeperRound[]> {
+export async function thinkDeeper(profile: Profile, s: TopicState, title: string, seed?: LessonContent["deeper"], maxRounds = 2): Promise<DeeperRound[]> {
   const rounds: DeeperRound[] = [];
   let lensIdx = Math.floor(Math.random() * LENSES.length);
   let current: { lens: string; question: string; considerations: string[] } | undefined = seed ? { lens: "Think deeper", ...seed } : undefined;

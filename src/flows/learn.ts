@@ -213,8 +213,10 @@ async function teach(ctx: LessonCtx): Promise<void> {
 
   // 7. Think deeper: trade-offs, failure modes, second-order effects.
   if (ctx.deep) {
-    const rounds: DeeperRound[] = await thinkDeeper(profile, topic.state, ctx.title, lesson.deeper);
-    if (rounds.length) extras.deeper = rounds;
+    if (lesson.deeper) {
+      const rounds: DeeperRound[] = await thinkDeeper(profile, topic.state, ctx.title, lesson.deeper);
+      if (rounds.length) extras.deeper = rounds;
+    }
     // 8. Personal connection.
     const conn = must(await p.text({ message: `${t.pink("Where could you use this?")}`, placeholder: "a project, a decision, something you've seen (blank to skip)" })).trim();
     if (conn) {

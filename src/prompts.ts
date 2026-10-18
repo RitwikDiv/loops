@@ -67,7 +67,7 @@ Rules: max ~250 words in markdown. ${p.order === "examples-first" ? "Open with a
 Use the learner's preferred styles (${p.styles.join(", ") || "any"}). ${diagramRule(p)} ${MERMAID_RULES}
 ${STEM_RULES}
 ${QUESTION_RULES}
-Exactly 2 multiple-choice checks (4 options each, "answer" is the 0-based index, plausible distractors based on real misconceptions; vary the position of the right answer). 2-3 flashcards.
+Exactly 3 multiple-choice checks (4 options each, "answer" is the 0-based index, plausible distractors based on real misconceptions; vary the position of the right answer) in rising difficulty: 1 easy (recall the core idea), 1 medium (apply it to a simple case), 1 hard (a subtle case or a common misconception). Order them easy to hard. 2-3 flashcards.
 Return ONLY JSON of this shape:
 ${lessonShape}`;
 }
@@ -87,9 +87,9 @@ Rules: 400-650 words of markdown with ## subheadings. ${p.order === "examples-fi
 Include a worked example, one common misconception to avoid, and ${p.diagrams === "minimal" ? "at least one" : "1-2"} figure(s) (mermaid, svg or plot as fits the subject) showing the real mechanism/structure (not decoration). ${MERMAID_RULES}
 ${STEM_RULES}
 ${QUESTION_RULES}
-Challenge level: ${p.challenge}. Exactly ${p.challenge === "tough" ? 4 : 3} multiple-choice checks that test understanding/application, not trivia (4 options, "answer" is 0-based). 3-4 flashcards phrased as recall questions.
+Challenge level: ${p.challenge}. Exactly ${p.challenge === "tough" ? 5 : p.challenge === "gentle" ? 3 : 4} multiple-choice checks that test understanding/application, not trivia (4 options, "answer" is 0-based), ordered easy to hard: at least one easy recall check, mostly medium application checks, and at least one hard check (subtle case or misconception). 3-4 flashcards phrased as recall questions.
 ${p.socratic ? "The learner prefers a SOCRATIC style: the markdown is the consolidation shown AFTER they work through your leading questions, so it should name and tie together the ideas those questions lead to." : ""}
-Also include the "prediction" (a situation where a wrong intuition is likely, so they learn from guessing wrong), the "deeper" trade-off question${p.socratic ? ", and exactly 3 \"socratic\" questions" : ""}.
+Also include the "prediction" (a situation where a wrong intuition is likely, so they learn from guessing wrong). Include the "deeper" trade-off question ONLY if this lesson has a genuine judgement call, trade-off or failure mode worth debating; for foundational or purely procedural lessons set "deeper" to null (roughly half of lessons should have none)${p.socratic ? ", and exactly 3 \"socratic\" questions" : ""}.
 Return ONLY JSON of this shape (omit the /* */ comment):
 ${lessonShapeBase}${deepExtras(!!p.socratic)}`;
 }
@@ -181,6 +181,7 @@ export function critiquePrompt(p: Profile, title: string, question: string, cons
 A thoughtful answer would raise: ${considerations.map((c) => `- ${c}`).join("\n")}
 Learner's answer: """${answer}"""
 Judge reasoning quality, not length: did they weigh both sides, name concrete risks, and notice second-order effects? Credit valid points that are NOT in the list. Be ${tone}.
+Be proportionate, not pedantic: list at most 2 blind spots and only ones that would change their conclusion; skip nitpicks, wording quibbles and edge cases that don't matter. If the answer is solid, say so and leave "blindSpots" empty and "pushback" an empty string.
 Return ONLY JSON: {"strong":["good points they made"],"blindSpots":["important angles they did not consider, each with one sentence of why it matters"],"pushback":"one hard follow-up that challenges their weakest assumption","feedback":"2 sentences"}`;
 }
 
