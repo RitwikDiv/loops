@@ -22,6 +22,8 @@ Requires Node 20+ and either the `claude` or `codex` CLI installed and logged in
 9. **When you're stuck**: a short diagnosis finds the mental model that's wrong, re-teaches that, and re-tests it.
 10. **Remembering**: SM-2 spaced repetition, a warm-up before each session, interleaved mixed quizzes (weakest first, confident mistakes first), a **mistake journal**, and a **streak**.
 
+Lesson explanations type out gradually so you can read along. Press **Space** to pause/resume or **Enter** to show the rest immediately. Tables, equations, diagrams, figures, and code appear as complete blocks; questions and menus stay immediate. Set `LOOPS_TYPE_DELAY=15` for faster typing (milliseconds per character), or `LOOPS_TYPE_DELAY=0` to turn it off. Redirected/piped output always prints immediately.
+
 ## Equations, physics diagrams and plots
 
 Technical lessons use real typesetting, not ASCII approximations:
@@ -67,4 +69,4 @@ Your profile and streak live in `~/.config/loops/`.
 
 It **can't** see your account's "extra usage" (Claude) or credits (ChatGPT/Codex) settings, because neither CLI exposes them. If you don't want overage charges, turn those off in your account settings.
 
-Env: `LOOPS_HOME`, `LOOPS_PROVIDER=claude|codex`, `LOOPS_ALLOW_API_BILLING=1`, `LOOPS_IMAGES`, `NO_COLOR`.
+Env: `LOOPS_HOME`, `LOOPS_PROVIDER=claude|codex`, `LOOPS_ALLOW_API_BILLING=1`, `LOOPS_IMAGES`, `LOOPS_TYPE_DELAY`, `NO_COLOR`.

@@ -8,7 +8,7 @@ import { renderDiagram } from "../diagram.js";
 import { addMistake, createTopic, listCategories, saveTopic, slugify, writeText } from "../store.js";
 import { recordActivity } from "../stats.js";
 import { addCards, isDue } from "../srs.js";
-import { bar, m, must, renderMd, t, withSpinner } from "../ui.js";
+import { bar, m, must, readLesson, t, withSpinner } from "../ui.js";
 import { reviewCards, runChecks, teachBack } from "./quiz.js";
 import { applicationChallenge, diagnose, predictThenReveal, socraticWarmup, thinkDeeper, type DeeperRound } from "./think.js";
 import type { Area, Check, LessonContent, LessonRef, MapData, Profile, Topic } from "../types.js";
@@ -156,7 +156,7 @@ async function teach(ctx: LessonCtx): Promise<void> {
   }
   // 2. The chunk, with an escape hatch.
   if (socratic) p.log.message(t.dim("Here's how the pieces fit together:"));
-  console.log(renderMd(lesson.markdown) + "\n");
+  await readLesson(lesson.markdown);
   while (true) {
     const next = must(
       await p.select<"go" | "again">({
@@ -169,7 +169,7 @@ async function teach(ctx: LessonCtx): Promise<void> {
     );
     if (next === "go") break;
     const alt = await withSpinner("Finding another angle...", () => askText(profile, reexplainPrompt(profile, topic.state.title, ctx.title, lesson.markdown)));
-    console.log(renderMd(alt) + "\n");
+    await readLesson(alt);
     lesson.markdown += `\n\n---\n\n### Another angle\n\n${alt}`;
   }
 

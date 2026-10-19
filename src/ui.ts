@@ -5,6 +5,7 @@ import { parsePlot, plotToBraille, renderPlot, sanitizeSvg, svgCaption } from ".
 import { mathToText, svgToPng, texToLines, texToPng, type Raster } from "./math.js";
 import { isTableLine, renderTable } from "./table.js";
 import { drawImage, imageProtocol } from "./termimg.js";
+import { writeReading, type ReadingChunk } from "./reading.js";
 
 const useColor = !!process.stdout.isTTY && !process.env.NO_COLOR;
 const c256 = (n: number) => (s: string) => (useColor ? `\x1b[38;5;${n}m${s}\x1b[39m` : s);
@@ -111,7 +112,19 @@ function renderFigure(kind: "svg" | "plot", src: string): string[] {
 
 /** Terminal markdown renderer: styling, mermaid, TeX equations, SVG figures and plots. */
 export function renderMd(md: string): string {
-  const out: string[] = [];
+  return renderMdChunks(md).map((chunk) => chunk.text).join("");
+}
+
+/** Keep prose separate from complete terminal blocks, including image escape sequences. */
+export function renderMdChunks(md: string): ReadingChunk[] {
+  const out: ReadingChunk[] = [];
+  const emit = (animate: boolean, ...lines: string[]) => {
+    if (!lines.length) return;
+    const text = (out.length ? "\n" : "") + lines.join("\n");
+    const last = out.at(-1);
+    if (last?.animate === animate) last.text += text;
+    else out.push({ text, animate });
+  };
   let fence: string | null = null;
   let buf: string[] = [];
   let math: string[] | null = null;
@@ -123,7 +136,7 @@ export function renderMd(md: string): string {
   let tableBuf: string[] = [];
   const flushTable = () => {
     const cols = process.stdout.columns ?? 100;
-    out.push(...renderTable(tableBuf, inline, (x) => t.bold(t.accent(inline(x))), t.dim, cols - 4).map((l) => "  " + l));
+    emit(false, ...renderTable(tableBuf, inline, (x) => t.bold(t.accent(inline(x))), t.dim, cols - 4).map((l) => "  " + l));
     tableBuf = [];
   };
   for (const raw of md.split("\n")) {
@@ -133,7 +146,7 @@ export function renderMd(md: string): string {
       const close = raw.match(/^(.*?)(\$\$|\\\])\s*$/);
       if (close) {
         math.push(close[1]);
-        out.push(...renderEquation(math.join("\n")));
+        emit(false, ...renderEquation(math.join("\n")));
         math = null;
       } else math.push(raw);
       continue;
@@ -141,7 +154,7 @@ export function renderMd(md: string): string {
     if (fence === null) {
       const one = raw.match(/^\s*(?:\$\$|\\\[)(.+?)(?:\$\$|\\\])\s*$/);
       if (one) {
-        out.push(...renderEquation(one[1]));
+        emit(false, ...renderEquation(one[1]));
         continue;
       }
       const open = raw.match(/^\s*(\$\$|\\\[)(.*)$/);
@@ -158,8 +171,8 @@ export function renderMd(md: string): string {
       } else {
         if (fence === "mermaid") {
           const art = renderDiagram(buf.join("\n"));
-          out.push("", ...(art ? art.split("\n").map((l) => "  " + l) : ["  " + t.pink("◆ diagram ") + t.dim("(too wide for this terminal — open the markdown file)")]), "");
-        } else if (fence === "svg" || fence === "plot") out.push(...renderFigure(fence, buf.join("\n")));
+          emit(false, "", ...(art ? art.split("\n").map((l) => "  " + l) : ["  " + t.pink("◆ diagram ") + t.dim("(too wide for this terminal — open the markdown file)")]), "");
+        } else if (fence === "svg" || fence === "plot") emit(false, ...renderFigure(fence, buf.join("\n")));
         fence = null;
       }
       continue;
@@ -169,7 +182,7 @@ export function renderMd(md: string): string {
       continue;
     }
     if (fence !== null) {
-      out.push("  " + t.dim("│ ") + t.cyan(raw));
+      emit(false, "  " + t.dim("│ ") + t.cyan(raw));
       continue;
     }
     if (isTableLine(raw)) {
@@ -178,23 +191,34 @@ export function renderMd(md: string): string {
     }
     const h = raw.match(/^(#{1,4})\s+(.*)/);
     if (h) {
-      out.push("", "  " + (h[1].length <= 2 ? t.bold(t.accent(inline(h[2]))) : t.bold(inline(h[2]))));
+      emit(false, "", "  " + (h[1].length <= 2 ? t.bold(t.accent(inline(h[2]))) : t.bold(inline(h[2]))));
       continue;
     }
     const li = raw.match(/^(\s*)[-*]\s+(.*)/);
     if (li) {
-      out.push("  " + li[1] + t.accent("• ") + inline(li[2]));
+      emit(true, "  " + li[1] + t.accent("• ") + inline(li[2]));
       continue;
     }
     const q = raw.match(/^>\s?(.*)/);
     if (q) {
-      out.push("  " + t.warn("▌ ") + t.italic(inline(q[1])));
+      emit(true, "  " + t.warn("▌ ") + t.italic(inline(q[1])));
       continue;
     }
-    out.push(raw.trim() ? "  " + inline(raw) : "");
+    emit(!!raw.trim(), raw.trim() ? "  " + inline(raw) : "");
   }
   if (tableBuf.length) flushTable();
-  return out.join("\n");
+  return out;
+}
+
+/** Pace lesson explanations; prompts and other UI continue to render immediately. */
+export async function readLesson(md: string): Promise<void> {
+  const chunks = renderMdChunks(md);
+  chunks.push({ text: "\n\n", animate: false });
+  const completed = await writeReading(chunks, () => p.log.message(t.dim("Reading · Space to pause/resume · Enter to show all")));
+  if (!completed) {
+    p.cancel("Progress saved. See you next time ✦");
+    process.exit(0);
+  }
 }
 
 /** Plain-text math for prompts, options and flashcards. */
